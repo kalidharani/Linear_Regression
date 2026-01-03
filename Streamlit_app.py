@@ -1,79 +1,83 @@
 import streamlit as st
-import pickle
+import joblib
 import numpy as np
 
 # ----------------------------------
 # Page Config
 # ----------------------------------
-st.set_page_config(page_title="Student Performance Prediction", layout="centered")
+st.set_page_config(
+    page_title="Student Final Score Prediction",
+    layout="centered"
+)
 
 st.title("📊 Student Final Score Prediction")
 st.write("Linear Regression Model")
 st.divider()
 
 # ----------------------------------
-# Load trained objects
+# Load trained objects (JOBLIB)
 # ----------------------------------
 @st.cache_resource
 def load_models():
-    with open("scaler.pkl", "rb") as f:
-        scaler = pickle.load(f)
-    with open("feature_selector.pkl", "rb") as f:
-        selector = pickle.load(f)
-    with open("Students_final_score.pkl", "rb") as f:
-        model = pickle.load(f)
+    scaler = joblib.load("scaler.pkl")
+    selector = joblib.load("selector.pkl")
+    model = joblib.load("model.pkl")
     return scaler, selector, model
+
 
 scaler, selector, model = load_models()
 
-TOTAL_FEATURES = scaler.n_features_in_
-
 # ----------------------------------
-# ✅ Select only a few real features
-# (Use column names from your dataset)
+# Feature configuration
 # ----------------------------------
-SELECTED_FEATURES = [
-    "Hours_Studied",
-    "Attendance",
-    "Previous_Score",
-    "Assignments_Completed",
-    "Mock_Test_Score"
+FEATURES = [
+    "Previous_Sem_Score",
+    "Study_Hours_per_Week",
+    "Attendance_Percentage",
+    "Family_Income",
+    "Teacher_Feedback_en",
+    "Sleep_Hours",
+    "Internet_Access_en",
+    "Motivation_Level",
+    "Peer_Influence"
 ]
 
-NUM_FEATURES = len(SELECTED_FEATURES)
+TOTAL_FEATURES = scaler.n_features_in_
+NUM_FEATURES = len(FEATURES)
 
-st.info(f"Using {NUM_FEATURES} selected features for prediction")
+st.info(f"Using {NUM_FEATURES} features for prediction")
 
 # ----------------------------------
-# User Inputs (Integer only)
+# User Inputs (WHOLE NUMBERS ONLY)
 # ----------------------------------
-st.subheader("Enter Feature Values")
+st.subheader("Enter Student Details")
 
 inputs = []
-for name in SELECTED_FEATURES:
-    val = st.number_input(
-        label=name,
+for feature in FEATURES:
+    value = st.number_input(
+        label=feature,
         min_value=0,
-        step=1,          # ✅ only whole numbers
-        value=0
+        value=0,
+        step=1,          # ✅ whole numbers only
+        format="%d"
     )
-    inputs.append(val)
+    inputs.append(int(value))  # ✅ force integer
 
 # ----------------------------------
 # Prediction
 # ----------------------------------
 if st.button("🔮 Predict Final Score"):
     try:
-        # Pad remaining features with zeros
+        # Ensure correct feature length
         if NUM_FEATURES < TOTAL_FEATURES:
             inputs_extended = inputs + [0] * (TOTAL_FEATURES - NUM_FEATURES)
         else:
-            inputs_extended = inputs
+            inputs_extended = inputs[:TOTAL_FEATURES]
 
-        input_data = np.array([inputs_extended])
+        input_array = np.array([inputs_extended])
 
         # Preprocessing
-        scaled_data = scaler.transform(input_data)
+        scaled_data = scaler.transform(input_array)
         selected_data = selector.transform(scaled_data)
 
         # Prediction
@@ -82,5 +86,5 @@ if st.button("🔮 Predict Final Score"):
         st.success(f"🎯 Predicted Final Score: **{prediction[0]:.2f}**")
 
     except Exception as e:
-        st.error("❌ Prediction failed. Check feature order and dimensions.")
+        st.error("❌ Prediction failed due to feature mismatch or model issue.")
         st.exception(e)
